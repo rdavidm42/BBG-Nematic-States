@@ -12,13 +12,13 @@ Key Components:
     - Total energy calculation
 """
 
+
 import numpy as np
 import numba
 import scipy.optimize as opt
 
-
 @numba.njit
-def fermi(e, mu, T):
+def fermi(e,mu,T):
     """
     Compute the Fermi-Dirac distribution function.
     
@@ -35,16 +35,11 @@ def fermi(e, mu, T):
     -------
     float or ndarray
         Occupation probability at given energy
-    
-    Notes
-    -----
-    This is the standard Fermi-Dirac distribution: f(E) = 1 / (1 + exp((E-μ)/T))
     """
-    return 1 / (1 + np.exp((e - mu) / T))
-
+    return 1/(1+np.exp((e-mu)/T))
 
 @numba.njit
-def particle_num(mu, d, e, num, t):
+def particle_num(mu,d,e,num,t):
     """
     Constraint function for particle number conservation.
     
@@ -70,12 +65,11 @@ def particle_num(mu, d, e, num, t):
     float
         Difference between target and actual particle number
     """
-    result = num - np.sum(fermi(e - d, mu, t))
+    result = num - np.sum(fermi(e-d,mu,t))
     return result
 
-
 @numba.njit
-def fixed_log(mu, e, t):
+def fixed_log(mu,e,t):
     """
     Numerically stable logarithm for free energy calculation.
     
@@ -95,21 +89,19 @@ def fixed_log(mu, e, t):
     Returns
     -------
     ndarray
-        Stable logarithm values for entropy term
+        Stable logarithm values for free energy
     """
-    return np.where(mu - e > 0,
-                    (mu - e) / t + np.log(1 + np.exp((e - mu) / t)),
-                    np.log(1 + np.exp((mu - e) / t)))
+    return np.where(mu-e>0,(mu-e)/t+np.log(1+np.exp((e-mu)/t)), np.log(1+np.exp((mu-e)/t)))
 
-
-@numba.jit(nopython=True, parallel=True)
-def loops(dlast, mu, e, lengthm, interaction, t):
+@numba.njit(parallel=True,cache=True)
+def loops(dlast,mu,e,lengthm,vector,t,momenta,u,d_gate,a):
     """
     Compute updated order parameter from self-consistency equation.
     
     This is the core self-consistent field calculation. For each momentum point,
     the new order parameter is computed as the sum over all momentum points of
-    the interaction matrix weighted by the occupation.
+    the interaction matrix weighted by the occupation. The interaction is computed using 
+    a screened Coulomb potential with a hyperbolic tangent cutoff.
     
     Parameters
     ----------
@@ -121,10 +113,18 @@ def loops(dlast, mu, e, lengthm, interaction, t):
         Energy dispersion
     lengthm : int
         Number of momentum points
-    interaction : ndarray, shape (lengthm, lengthm)
+    vector : ndarray, shape (lengthm, lengthm)
         Interaction matrix V(k, k')
     t : float
         Temperature
+    momenta : ndarray, shape (lengthm, 2)
+        Momentum grid points
+    u : float
+        Prefactor determining interaction strength
+    d_gate : float
+        Gate distance for screening
+    a : float
+        Lattice constant
     
     Returns
     -------
@@ -133,20 +133,31 @@ def loops(dlast, mu, e, lengthm, interaction, t):
     
     Notes
     -----
-    Parallelized over momentum points for HPC efficiency.
+    First loop is parallelized over momentum points.
     """
     d = np.zeros(lengthm)
+    fermi_vals = fermi(e-dlast,mu,t)
+    # Ensure the interaction matrix is contiguous for efficient access by MSI cluster
+    vector = np.ascontiguousarray(vector.T)
     for i in numba.prange(lengthm):
-        d[i] = np.sum(fermi(e - dlast, mu, t) * interaction[i])
+        acc = 0.0
+        vec_i_conj = vector[i].conj()
+        for k in range(lengthm):
+            coherence = np.abs(vec_i_conj@vector[k])**2
+            dx = momenta[i, 0] - momenta[k, 0]
+            dy = momenta[i, 1] - momenta[k, 1]
+            vec_diff = np.sqrt(dx*dx + dy*dy) + 0.00001
+            interaction = u * np.tanh(d_gate / a * vec_diff) / vec_diff * coherence
+            acc += fermi_vals[k] * interaction
+        d[i] = acc
     return d
 
-
-def get_order_parameters(num, lengthm, l, energy, interaction, initial_guess, t):
+def get_order_parameters(num,lengthm,energy,vectors,initial_guess,t,momenta,u,d_gate,a):
     """
     Solve self-consistent Hartree-Fock equations iteratively.
     
-    This function implements the main SCF loop:
-    1. Initialize order parameter (interaction gap)
+    This function implements the main SCHF loop:
+    1. Initialize order parameter with initial guess
     2. Find chemical potential satisfying particle number
     3. Update order parameter using self-consistency equation
     4. Repeat until convergence or maximum iterations
@@ -161,8 +172,8 @@ def get_order_parameters(num, lengthm, l, energy, interaction, initial_guess, t)
         System size (for density calculations)
     energy : ndarray, shape (n_bands, lengthm)
         Non-interacting energy dispersions
-    interaction : ndarray, shape (n_bands, lengthm, lengthm)
-        Interaction matrices for each band
+    vectors : ndarray, shape (n_bands, 4, lengthm)
+        Eigenvectors for each band
     initial_guess : ndarray, shape (n_bands, lengthm)
         Starting guess for order parameter
     t : float
@@ -187,70 +198,47 @@ def get_order_parameters(num, lengthm, l, energy, interaction, initial_guess, t)
         - Maximum error < 1e-5 (self-consistency tolerance)
         - Maximum 250 iterations
         - Early stopping if error doesn't improve for 20 consecutive iterations
-    
-    The algorithm uses scipy.optimize.fsolve to find chemical potential at each
-    iteration, ensuring particle number conservation.
     """
+
     dinitial = np.copy(initial_guess)
-    
     # Calculate non-interacting Fermi level (for reference)
-    ef_norm = opt.fsolve(particle_num, [np.min(energy[0])],
-                        args=(np.zeros(dinitial.shape), energy, num, t))[0]
-    
+    ef_norm = opt.fsolve(particle_num,[np.min(energy[0])],args=(np.zeros(dinitial.shape),energy,num,t))[0]
+
     # Initial chemical potential with interactions
-    ef = opt.fsolve(particle_num, [np.min(energy - dinitial)],
-                   args=(dinitial, energy, num, t))[0]
+    ef = opt.fsolve(particle_num,[np.min(energy-dinitial)],args=(dinitial,energy,num,t))[0]
 
     # Initialize convergence tracking
     maxerror = [1]
     best_max_error = 10000
-    i = 0  # Iteration counter
-    j = 0  # Counter for iterations without improvement
-    
-    # Calculate initial total energy (kinetic + interaction contributions)
-    total_energy = [np.sum((energy - dinitial/2) * fermi(energy - dinitial, ef, t))]
-    
-    iteration = 0
-    
+    i = 0
+    j = 0
+    # Calculate initial free energy
+    total_energy = ef*num + np.sum(1/2*dinitial*fermi(energy-dinitial,ef,t)-t*fixed_log(ef,energy-dinitial,t))
     # Self-consistent iteration loop
-    while best_max_error > 1e-5 and i < 250:
+    while best_max_error>1e-5 and i<250:
         # Update order parameter using self-consistency equation
-        # d_new(k) = Σ_k' V(k,k') * f(E(k') - d_old(k'))
-        d = np.array([loops(x, ef, e, lengthm, inter, t) 
-                     for x, e, inter in zip(dinitial, energy, interaction)])
-        
+        d = np.array([loops(x,ef,e,lengthm,vecs,t,momenta,u,d_gate,a) for x,e,vecs in zip(dinitial,energy,vectors)])
         # Compute convergence metric (maximum pointwise change)
-        maxerror.append(np.max(np.abs(d - dinitial)))
+        maxerror.append(np.max(np.abs(d-dinitial)))
         dinitial = d
-        
         # Update chemical potential to maintain particle number
-        ef = opt.fsolve(particle_num, [np.min(energy - dinitial)],
-                       args=(dinitial, energy, num, t))[0]
-        
-        # Calculate total energy: E_total = Σ_k (E_k - Δ_k/2) * f_k
-        total_energy.append(np.sum((energy - dinitial/2) * 
-                                  fermi(energy - dinitial, ef, t)))
-        
-        # Track best solution (in case of oscillations)
-        if maxerror[i + 1] < best_max_error:
+        ef = opt.fsolve(particle_num,[np.min(energy-dinitial)],args=(dinitial,energy,num,t))[0]
+        if maxerror[i+1]<best_max_error:
+            # Save the best converged values
             true_d = d
             true_ef = ef
             j = 0
-            best_max_error = maxerror[i + 1]
-            iteration = i
+            best_max_error = maxerror[i+1]
+            total_energy = ef*num + np.sum(1/2*dinitial*fermi(energy-dinitial,ef,t)-t*fixed_log(ef,energy-dinitial,t))
         else:
-            j += 1
-        
+            j+=1
         # Early stopping if no improvement for 20 iterations
         if j >= 20:
             break
-        
         i += 1
-    
-    return true_d, true_ef, ef_norm, maxerror, total_energy
+    return true_d,true_ef,ef_norm,best_max_error,float(total_energy)
 
-
-def main(lengthm, l, energy, total_number, interaction, t, initial_guess):
+def main(lengthm,l,energy,total_number,vectors,t,initial_guess,momenta,u,d_gate,a):
     """
     Main entry point for Hartree-Fock calculation.
     
@@ -267,13 +255,20 @@ def main(lengthm, l, energy, total_number, interaction, t, initial_guess):
         Energy dispersions (meV)
     total_number : float
         Particle density (cm^-2)
-    interaction : ndarray, shape (n_bands, lengthm, lengthm)
-        Interaction matrices
+    vectors : ndarray, shape (n_bands, 4, lengthm)
+        Eigenvectors for each band
     t : float
         Temperature (meV)
     initial_guess : ndarray
         Initial order parameter guess
-    
+    momenta : ndarray, shape (lengthm, 2)
+        Momentum grid points
+    u : float
+        Interaction strength prefactor
+    d_gate : float
+        Gate distance for screening
+    a : float
+        Lattice constant
     Returns
     -------
     d : ndarray
@@ -288,21 +283,13 @@ def main(lengthm, l, energy, total_number, interaction, t, initial_guess):
         Fractional occupation of each band
     total_energy : list
         Energy evolution during convergence
-    
-    Notes
-    -----
-    Conversion factor: 5.24e-16 converts system size (nm^2) to physical area
-    and total_number (cm^-2) to absolute particle count.
     """
+
     # Convert density (cm^-2) to absolute particle number
-    number = l**2 * 5.24e-16 * total_number
-    
+    number = l**2*5.24e-16*total_number
     # Solve self-consistent equations
-    d, ef, ef_norm, maxerror, total_energy = get_order_parameters(
-        number, lengthm, l, energy, interaction, initial_guess, t)
-    
-    # Calculate occupation fraction for each band
-    occupation = np.array([np.sum(fermi(e - x, ef, t)) / number 
-                          for e, x in zip(energy, d)])
-    
-    return d, ef, ef_norm, maxerror, occupation, total_energy
+    d,ef,ef_norm,maxerror,total_energy = get_order_parameters(number,lengthm,energy,vectors,initial_guess,t,momenta,u,d_gate,a)
+    # Calculate occupation fraction for each isospin
+    occupation = np.array([float(np.sum(fermi(e-x,ef,t))/number) for e,x in zip(energy,d)])
+    return d,ef,ef_norm,maxerror,occupation,total_energy
+
