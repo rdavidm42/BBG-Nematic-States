@@ -1,9 +1,9 @@
 # Ordered States in Bernal Bilayer Graphene
-
+This github repository shows the work I have done to analyze different phase transitions and ordered states in Bernal bilayer graphene. This summarizes work published I and my coauthor published as an article in Physical Review B (link [here](https://doi.org/10.1103/PhysRevB.111.245114)), as well as work that is currently under review, but currently accessible on arXiv (link [here](https://arxiv.org/abs/2605.26270))
 ## Introduction
 Over the past two decades, two dimensional materials have proven to host a wide variety of novel properties. One of the richest but simplest systems is graphene, a layer of graphite that is only a single atom thick. Stacking these single layers of graphene together has created an entirely new family of materials, including twisted and shifted graphene multilayer systems. These systems in turn have shown a variety of exotic behaviors, such as unconventional superconductivity and new varieties of magnetism. This work analyzes experimental data taken from Bernal bilayer graphene (BBG), two sheets of graphene stacked with a lateral shift. In the experiments, the sample is positioned between two metallic gates so that a perpendicular electric field can be applied to the system. These dual-gates also allow for precise control of how many electrons are in the graphene sample. These two parameters, electric field and electron number, provide a wealth of data as they tuned. One example of data can be found in [Zhou et al., Science 375, 774–778 (2022)](https://www.science.org/doi/10.1126/science.abm8386).
 
-Many features that have been observed in this system are not yet well understood, and I am working to develop models that can successfully explain the experimental data. One of the most interesting features seen in the data involves the statistical properties of electrons. From the simplest models, it is understood that the electrons each have two properties called spin and valley. Both of these properties can take one of two values, for spin it is $\uparrow$ or $\downarrow$, and for valley either $+$ or $-$. Therefore, every electron has one of four labels: $\uparrow+$, $\uparrow-$, $\downarrow+$, or $\downarrow-$. In the simplest models, it is expected that all four labels are equally probable to appear. However, in experimental data, there are regions in parameter space where only electrons with one or two of these labels appear. 
+Many features that have been observed in this system are not yet well understood, and I am working to develop models that can successfully explain the experimental data. One of the most interesting features seen in the data involves the statistical properties of electrons. From the simplest models, it is understood that the electrons each have two properties called spin and valley. Both of these properties can take one of two values: spin is either $\uparrow$ or $\downarrow$, and valley is either $+$ or $-$. Therefore, every electron has one of four labels: $\uparrow+$, $\uparrow-$, $\downarrow+$, or $\downarrow-$. In the simplest models, it is expected that all four labels are equally probable to appear. However, in experimental data, there are regions in parameter space where only electrons with one or two of these labels appear. 
 
 ## Effects of Interactions
 What is missing from these simplest models that predict equal probability of all labels is the fact that electrons repel each other. To accurately determine the statistics of electrons in Bernal bilayer graphene, effects of interactions must then be included. Individual charges interact via the Coulomb potential:
@@ -22,7 +22,7 @@ The key quantities in these equations are:
 - $\Delta_{\alpha}(\mathbf{p})$ - the mean-field (order parameter), representing the momentum-dependent average electric field each electron experiences from its neighbors.
 - $V(\mathbf{k}-\mathbf{p})$ - the Fourier-transformed Coulomb interaction, encoding how strongly two electrons, one with momenta k and one with momentum p, repel each other.
 
-The mean-field equations can also be derived by minimizing a free-energy functional with respect to the momentum-dependent order parameter $\Delta(p)$. Numerically, this corresponds to solving for the set of values $\{\Delta(p)\}$￼ that minimizes the system’s free energy.  A schematic depiction of this process is shown in the figure below. 
+The mean-field equations can also be derived by minimizing a free-energy functional with respect to the momentum-dependent order parameter $\Delta(p)$. Numerically, this corresponds to a high-dimensional constrained optimization problem, where the algorithm iteratively solves for the vector field {Δ(p)} that minimizes a non-linear free energy.  A schematic depiction of this process is shown in the figure below. 
 
 ![Iterative Solver Schematic](assets/schematic_energy.png)
 
@@ -35,7 +35,7 @@ The specific form of the interaction we take here is
 
 $$V(k-p) = \frac{e^2}{2 \epsilon_{r} \epsilon_0|k-p|}\tanh\left(qd\right)$$
 
-This is a modified version of the bare Coulomb interaction that appears when you consider a sample that is sandwiched between two metallic gates. In particular, $d$ is the distance from the sample to the gates, which is set during device fabrication. Of importance also is the quantity $\epsilon_r$, which is called the dielectric constant. The real dielectric constant in the material is not well known, so we tune the value of $\epsilon_r$ from 10 to 20 in order to match experimental results.
+This is a modified version of the bare Coulomb interaction that appears when you consider a sample that is sandwiched between two metallic gates. In particular, $d$ is the distance from the sample to the gates, which is set during device fabrication. This quantity is not known from the data, but is estimated to be within 10 to 50 nm.  The dielectric constant $\epsilon_r$​ is similarly unknown. We treat both $d$ and $\epsilon_r$ as hyperparameters, tuning them so that model most closely matches experimental data.
 
 To solve the above equation for $\Delta_{\alpha}(\mathbf{p})$, one of the most efficient methods is the iterative approach. In this approach, an initial guess for the $\Delta(k)$ is chosen, call this $\Delta_0(k)$. Then this initial guess is substituted into the right hand side of the equation to obtain $\Delta_1(k)$,
 
@@ -45,8 +45,28 @@ Then $\Delta_1(k)$ can be similarly used to obtain a $\Delta_2(k)$, and this pro
 
 A noteable shortcoming of this method is that it can only find a local minimum which is close to the initial guess. However, thanks to experimental data, approximate solutions for this equation can be constructed, and then used as initial guesses for various different states. In this code, a total of 18 different initial guesses are made, each one corresponding to a different physical state. Of the 18 resulting solutions that are then obtained, the one with the lowest energy is kept. 
 
-This above procedure is applied for many different electric fields and electron numbers. Below I show one of the phase diagrams I generated from the code here,
+This above procedure is applied for many different electric fields and electron numbers. Below I show one of the phase diagrams I generated from the code here, where I fixed $\epsilon_r = 20$ and $d = 20$ nm.
 
-![Iterative Solver Schematic](assets/phases_epsilon=20_d=20.png)
+![Phase Diagram](assets/phases_epsilon=20_d=20.png)
 
-Each color in the diagram represents a different state, corresponding to the portion of each label that is present. The brown color, for example, is typically called a quarter metal because only one of the four labels are present. In addition, there are also a family of phases called PIP phases, where there are some labels that are present, but only occur with a much smaller probability. The notation used for this is $\text{PIP}_{i,j}$, where $i$ denotes the number of labels which the majority of electrons have, and $j$ is the number of electrons the minority of electrons have.
+Each color in the diagram represents a different state, corresponding to the portion of each label that is present. As a reminder, each electron has a label $\uparrow+$, $\uparrow-$, $\downarrow+$, or $\downarrow-$. The brown color, for example, is typically called a quarter metal because only one of these four labels are present. In the actual data, which label is selected cannot be determined, but it is safe to say that only one of the labels is present. The full metal state is the simplest case, where all four labels are equally applied to the electrons. 
+
+In addition, there are also a family of states called PIP phases, where some labels that are present, but only occur with a much smaller probability. The notation used for this is $\text{PIP}_{i,j}$, where $i$ denotes the number of labels which the majority of electrons have, and $j$ is the number of labels the minority of electrons have. For instance in the $\text{PIP}_{1,3}$ state, 85% of the electrons may have the $\uparrow+$ label, and the remaining 15% of electrons will have labels evenly split between $\uparrow-$, $\downarrow+$, and $\downarrow-$.
+
+Below is a table which summarizes how each of the different states correpond to how many labels the electrons can have.
+
+| State | Majority Labels | Minority Labels|
+| :---: | :---: | :---:|
+| Quarter Metal | 1 | 0 |
+| Half Metal | 2 | 0 |
+| Three Quarters Metal | 3 | 0 |
+| $\text{PIP}_{1,3}$ | 1 | 3 |
+| $\text{PIP}_{2,2}$ | 2 | 2 |
+| $\text{PIP}_{3,1}$ | 3 | 1 |
+| Full Metal | 4 | 0 |
+
+Lastly, I would like to note that there is an additional state that was also studied, called a nematic state. In this nematic state the probability distribution of electrons $n_F(\varepsilon_{\mathbf{p}})$ is fundamentally changed. Without $\Delta_{\alpha}(\mathbf{p})$, one can show that if the vector $\mathbf{p}$ is rotated by $120\degree$, then the energy $\varepsilon_{\mathbf{p}}$ (and therefore $n_F(\varepsilon_{\mathbf{p}})$) is unchanged. However, in these nematic states, $\Delta_{\alpha}(\mathbf{p})$ does not respect this property. Then the probability distribution is no longer the same when $\mathbf{p}$ is rotated by $120\degree$. A schematic depiction is shown below.
+
+![Nematic Example](assets/nematic_example.png)
+
+While nematic states were not found in the example phase diagram shown above, other parameter regions were found to host these nematic states. In particular, smaller $\epsilon_r$ and larger $d$ were shown to be favorable to the formation of these nematic states. 
