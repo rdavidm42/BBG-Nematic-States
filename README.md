@@ -2,11 +2,14 @@
 This github repository shows the work I have done to analyze different phase transitions and ordered states in Bernal bilayer graphene. This summarizes work published I and my coauthor published as an article in Physical Review B (link [here](https://doi.org/10.1103/PhysRevB.111.245114)), as well as work that is currently under review, but currently accessible on arXiv (link [here](https://arxiv.org/abs/2605.26270))
 
 ## Running the Code
-This code was originally run on the Minnesota Supcomputing Institute's Agate cluster. The looprun.sh file creates a folder for each job to be submitted, and copies the code as well as the SLURM file to that folder. Each job corresponds to a pair of parameters for electric field and number of electrons. To run the code, both main.py and the dielectric constant of choice must be put after looprun, as shown below:
+This code was originally run on the Minnesota Supcomputing Institute's Agate cluster. The looprun.sh file creates a folder for each job to be submitted, and copies the code as well as the SLURM file to that folder. Each job corresponds to a pair of parameters for electric field and number of electrons. The main.py file solves the model at each of these points, and saves the results to a common directory. The get_dispersion_one_v.py and solve_sc.py files are used to get the single particle dispersion and solve the self-consistent equations, respectively.
 
+To run the code, both main.py and the dielectric constant of choice must be put after looprun, as shown below:
 ```bash
 looprun.sh main.py <dielectric constant>
 ```
+
+The SLURM file copied to each folder sets resources for each job. In this repository, this is set to 3 cores per job and 512 Mb of memory, though other values were used throughout the course of the project. Additional parallelization of loops within each job, as well as JIT, is handled by NUMBA.
 
 ## Introduction to Bilayer Graphene
 Over the past two decades, two dimensional materials have proven to host a wide variety of novel properties. One of the richest but simplest systems is graphene, a layer of graphite that is only a single atom thick. Stacking these single layers of graphene together has created an entirely new family of materials, including twisted and shifted graphene multilayer systems. These systems in turn have shown a variety of exotic behaviors, such as unconventional superconductivity and new varieties of magnetism. This work analyzes experimental data taken from Bernal bilayer graphene (BBG), two sheets of graphene stacked with a lateral shift. In the experiments, the sample is positioned between two metallic gates so that a perpendicular electric field can be applied to the system. These dual-gates also allow for precise control of how many electrons are in the graphene sample. These two parameters, electric field and electron number, provide a wealth of data as they tuned. One example of data can be found in [Zhou et al., Science 375, 774–778 (2022)](https://www.science.org/doi/10.1126/science.abm8386).
