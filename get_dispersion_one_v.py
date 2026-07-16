@@ -12,71 +12,8 @@ Key Features:
 """
 
 import numpy as np
-import numba
+import jax.numpy as jnp
 import os
-
-@numba.jit(nopython=True,parallel=True)
-def dispersion(v,hamiltonian1,hamiltonian2,hamiltonian3,hamiltonian4):
-    """
-    Compute energy bands and eigenvectors for four Hamiltonian configurations.
-    
-    This function performs parallel diagonalization of tight-binding Hamiltonians
-    across momentum space. Each Hamiltonian represents a different combination of
-    valley (K/K') and layer configuration in bilayer graphene.
-    
-    Parameters
-    ----------
-    v : float
-        Applied perpendicular electric field (displacement field) in meV
-    hamiltonian1 : ndarray, shape (4, 4, lengthm)
-        First isospin Hamiltonian (K valley, spin up)
-    hamiltonian2 : ndarray, shape (4, 4, lengthm)
-        Second isospin Hamiltonian (K' valley, spin up)
-    hamiltonian3 : ndarray, shape (4, 4, lengthm)
-        Third isospin Hamiltonian (K valley, spin down)
-    hamiltonian4 : ndarray, shape (4, 4, lengthm)
-        Fourth isospin Hamiltonian (K' valley, spin down)
-    
-    Returns
-    -------
-    energy1, energy2, energy3, energy4 : ndarray, shape (lengthm,)
-        Dispersions for the higher energy hole (index 1) of each configuration,
-        tuned by electric field so that at the K/K' points, the valence band is 
-        at zero energy.
-    vectors1, vectors2, vectors3, vectors4 : ndarray, shape (4, lengthm)
-        Corresponding eigenvectors for each isospin.
-    
-    """
-    lengthm = hamiltonian1.shape[2]
-
-    # Initialize arrays to hold energies and eigenvectors
-    energy1 = np.zeros(lengthm)
-    energy2 = np.zeros(lengthm)
-    energy3 = np.zeros(lengthm)
-    energy4 = np.zeros(lengthm)
-
-    vectors1 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors2 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors3 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors4 = np.zeros((4,lengthm),dtype=np.complex128)
-
-    for i in numba.prange(lengthm):
-        # Get eigenvalues and eigenvectors for each Hamiltonian
-        sys1 = np.linalg.eigh(hamiltonian1[:,:,i])
-        sys2 = np.linalg.eigh(hamiltonian2[:,:,i])
-        sys3 = np.linalg.eigh(hamiltonian3[:,:,i])
-        sys4 = np.linalg.eigh(hamiltonian4[:,:,i])
-        
-        energy1[i] = sys1[0][1]
-        energy2[i] = sys2[0][1]
-        energy3[i] = sys3[0][1]
-        energy4[i] = sys4[0][1]
-
-        vectors1[:,i] = sys1[1][:,1]
-        vectors2[:,i] = sys2[1][:,1]
-        vectors3[:,i] = sys3[1][:,1]
-        vectors4[:,i] = sys4[1][:,1]
-    return -energy1-v/2, -energy2-v/2, -energy3-v/2, -energy4-v/2,vectors1,vectors2,vectors3,vectors4
 
 def getting_energies(v,momenta):   
     kx = momenta[:,0]
@@ -125,7 +62,22 @@ def getting_energies(v,momenta):
                               ,[-t0*f2c,w+v/2*np.ones(lengthm),t1*np.ones(lengthm),t4*f2]
                               ,[t4*f2c,t1*np.ones(lengthm),w-v/2*np.ones(lengthm)+l/2,-t0*f2]
                               ,[t3*f2,t4*f2c,-t0*f2c,-v/2*np.ones(lengthm)+l/2]])
-    energy_1, energy_2, energy_3, energy_4,vectors1,vectors2,vectors3,vectors4 = dispersion(v,hamiltonian1,hamiltonian2,hamiltonian3,hamiltonian4)
+    
+    h1_batched = jnp.transpose(hamiltonian1, (2, 0, 1))
+    h2_batched = jnp.transpose(hamiltonian2, (2, 0, 1))
+    h3_batched = jnp.transpose(hamiltonian3, (2, 0, 1))
+    h4_batched = jnp.transpose(hamiltonian4, (2, 0, 1))
+
+    vals1, vecs1 = jnp.linalg.eigh(h1_batched)
+    vals2, vecs2 = jnp.linalg.eigh(h2_batched)
+    vals3, vecs3 = jnp.linalg.eigh(h3_batched)
+    vals4, vecs4 = jnp.linalg.eigh(h4_batched)
+
+    # 4. Extract specific eigenvalues (lengthm,) and eigenvectors (lengthm, 4)
+    energy_1, vectors1 = vals1[:, 1], vecs1[:, :, 1]
+    energy_2, vectors2 = vals2[:, 1], vecs2[:, :, 1]
+    energy_3, vectors3 = vals3[:, 1], vecs3[:, :, 1]
+    energy_4, vectors4 = vals4[:, 1], vecs4[:, :, 1]
     
     # Save the tight-binding parameters to a JSON file for reproducibility
     path = os.getcwd() + '/../../'
@@ -139,5 +91,6 @@ def getting_energies(v,momenta):
         
         with open(output_path, "w") as f:
             json.dump(params, f, indent=2)
-    
-    return np.array([energy_1,energy_2,energy_3,energy_4]),np.array([vectors1,vectors2,vectors3,vectors4])
+    energies = jnp.array([-energy_1-v/2,-energy_2-v/2,-energy_3-v/2,-energy_4-v/2])
+    vectors = jnp.array([jnp.transpose(vectors1),jnp.transpose(vectors2),jnp.transpose(vectors3),jnp.transpose(vectors4)])
+    return energies, vectors
