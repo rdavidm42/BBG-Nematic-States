@@ -39,7 +39,6 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
-import numba
 from scipy.interpolate import griddata
 
 # ============================================================================
