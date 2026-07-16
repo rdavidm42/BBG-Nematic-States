@@ -206,7 +206,7 @@ if not os.path.exists(output_path):
     # Save the simulation parameters to a JSON file
     params = {"L":L,
     "cutoff":cutoff,
-    "epsilon":u_calculated/u,
+    "epsilon":er,
     "t":t,
     "d_gate":d_gate,
     "version":"v2"}
