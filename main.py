@@ -70,7 +70,7 @@ a = .246 # Lattice constant in nm
 
 energy,_ = getting_energies(v,momenta) # Get non-interacting energy dispersions and eigenvectors for the four isospin configurations for dense momentum grid
 
-ef = opt.fsolve(particle_num,[np.min(energy)],args=(energy[0],L**2*5.24e-16*total_number,t))[0] # Chemical potential for the non-interacting system at the given density and temperature
+ef = opt.fsolve(particle_num,[np.min(energy)],args=(np.zeros_like(energy[0]),energy[0],L**2*5.24e-16*total_number,t))[0] # Chemical potential for the non-interacting system at the given density and temperature
 
 kx = momenta[:,0]
 ky = momenta[:,1]
