@@ -34,16 +34,6 @@ def getting_energies(v,momenta):
     t4 = 138
     w = 15
     l = 0
-    
-    energy_1 = np.ones(lengthm)
-    energy_2 = np.ones(lengthm)
-    energy_3 = np.ones(lengthm)
-    energy_4 = np.ones(lengthm)
-    
-    vectors1 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors2 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors3 = np.zeros((4,lengthm),dtype=np.complex128)
-    vectors4 = np.zeros((4,lengthm),dtype=np.complex128)
 
     #Hamiltonians for each valley/spin configuration in sublattice basis (A1,B1,A2,B2)
     hamiltonian1 = np.array([[v/2*np.ones(lengthm),-t0*f1,t4*f1,t3*f1c]
