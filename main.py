@@ -40,6 +40,9 @@ import sys
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 from scipy.interpolate import griddata
+import jax.numpy as jnp
+from jaxopt import ScipyRootFinding
+
 
 # ============================================================================
 # Define Brillouin Zone Momentum Grid
@@ -70,7 +73,14 @@ a = .246 # Lattice constant in nm
 
 energy,_ = getting_energies(v,momenta) # Get non-interacting energy dispersions and eigenvectors for the four isospin configurations for dense momentum grid
 
-ef = opt.fsolve(particle_num,[np.min(energy)],args=(energy[0],L**2*5.24e-16*total_number,t))[0] # Chemical potential for the non-interacting system at the given density and temperature
+particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="hybr")
+
+ef = particle_solver.run(init_params=jnp.min(energy[0]), 
+                                d = jnp.zeros_like(energy[0]), 
+                                e = energy[0], 
+                                num = L**2*5.24e-16*total_number, 
+                                t = t).params # Chemical potential for the non-interacting system at the given density and temperature
+
 
 kx = momenta[:,0]
 ky = momenta[:,1]
@@ -91,7 +101,7 @@ try:
     cutoff = max([np.max(x) for x in segs])*1.1
 except:
     cutoff = .12
-L = np.around(np.sqrt(20000*8*np.pi/np.sqrt(3))/cutoff*1/6)*6
+L = np.around(np.sqrt(10000*8*np.pi/np.sqrt(3))/cutoff*1/6)*6
 momenta = np.array([(n1*b1+n2*b2)/L for n1 in range(-200,200) for n2 in range(-200,200) if np.linalg.norm((n1*b1+n2*b2)/L)<cutoff])
 
 del grid_x, grid_y, X, Y, Z, contour, kx, ky
@@ -104,27 +114,36 @@ lengthm = len(momenta)
 # Get non-interacting energy dispersions and eigenvectors for the four isospin configurations for adaptive momentum grid
 energy,vectors = getting_energies(v,momenta)
 
+vec_diff = (np.linalg.norm((momenta[None,:]-momenta[:,None]),axis=-1)+.00001)
+interaction = u*np.tanh(d_gate/a*vec_diff)/vec_diff*np.array([np.abs(vector.T.conj()@vector)**2 for vector in vectors])
+
+del vec_diff
+
 # ============================================================================
 # Get Trial States for Each Isospin Configuration
 # ============================================================================
-polarized = np.array([u*total_number/4*(2.46e-8)**2*np.ones(lengthm)])
-full_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/4*.9,np.array([vectors[0]]),t,polarized,momenta,u,d_gate,a)
-full_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/4*.9,np.array([vectors[1]]),t,polarized,momenta,u,d_gate,a)
-half_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/2*.9,np.array([vectors[0]]),t,polarized,momenta,u,d_gate,a)
-quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number*.9,np.array([vectors[0]]),t,polarized,momenta,u,d_gate,a)
-three_quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/3*.9,np.array([vectors[0]]),t,polarized,momenta,u,d_gate,a)
-three_quarter_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/3*.9,np.array([vectors[1]]),t,polarized,momenta,u,d_gate,a)
 
-nematic_guess = np.array([momenta[:,0]])
-one_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([vectors[0]]),t,nematic_guess,momenta,u,d_gate,a)
-one_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([vectors[1]]),t,-nematic_guess,momenta,u,d_gate,a)
-two_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([vectors[0]]),t,-nematic_guess,momenta,u,d_gate,a)
-two_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([vectors[1]]),t,nematic_guess,momenta,u,d_gate,a)
+energy = jnp.asarray(energy)
+interaction = jnp.asarray(interaction)
 
-empty = np.zeros_like(full_metal_k)
+polarized = jnp.array([u*total_number/4*(2.46e-8)**2*jnp.ones(lengthm)])
+full_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/4*.9,np.array([interaction[0]]),t,polarized)
+full_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/4*.9,np.array([interaction[1]]),t,polarized)
+half_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/2*.9,np.array([interaction[0]]),t,polarized)
+quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number*.9,np.array([interaction[0]]),t,polarized)
+three_quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/3*.9,np.array([interaction[0]]),t,polarized)
+three_quarter_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/3*.9,np.array([interaction[1]]),t,polarized)
+
+nematic_guess = jnp.array([momenta[:,0]])
+one_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,nematic_guess)
+one_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,-nematic_guess)
+two_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,-nematic_guess)
+two_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,nematic_guess)
+
+empty = jnp.zeros_like(full_metal_k)
 
 # Building the initial guesses for the 18 competing phases to be tested in the self-consistent Hartree-Fock solver
-initial_guess = np.array([
+initial_guess = jnp.array([
     [quarter_metal_k,empty,empty,empty],
     [one_k,empty,empty,empty],
     [two_k,empty,empty,empty],
@@ -159,16 +178,16 @@ total_energy = np.zeros(initial_guess.shape[0])
 # Run the self-consistent Hartree-Fock solver for each competing phase
 for j in range(initial_guess.shape[0]):
     dinitial = initial_guess[j]
-    d[j],ef[j],ef_norm[j],best_max_error[j],occupation[j],total_energy[j] = main(lengthm,L,energy,total_number,vectors,t,dinitial,momenta,u,d_gate,a)
+    d[j],ef[j],ef_norm[j],best_max_error[j],occupation[j],total_energy[j] = main(lengthm,L,energy,total_number,interaction,t,dinitial)
 
 # Getting variables that correspond to the lowest energy solution across all competing phases
-d = d[np.argmin(total_energy)]
-ef = ef[np.argmin(total_energy)]
-occupation = occupation[np.argmin(total_energy)]
+d = d[jnp.argmin(total_energy)]
+ef = ef[jnp.argmin(total_energy)]
+occupation = occupation[jnp.argmin(total_energy)]
 ef_norm = ef_norm[0]
-best_max_error = best_max_error[np.argmin(total_energy)]
+best_max_error = best_max_error[jnp.argmin(total_energy)]
 
-total_energy = np.min(total_energy)
+total_energy = jnp.min(total_energy)
 
 # ============================================================================
 # Saving Results
@@ -190,7 +209,7 @@ data_to_save = {
     'total_energy': total_energy,
     'momenta': momenta
 }
-os.makedirs(directory,exists_ok=True)
+os.makedirs(directory,exist_ok=True)
 # Save each data object in its own subdirectory for organization
 for name, data_object in data_to_save.items():
     target_subdir = os.path.join(directory, name)
