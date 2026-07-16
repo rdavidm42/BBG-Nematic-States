@@ -12,13 +12,11 @@ Key Components:
     - Total energy calculation
 """
 
-
 import numpy as np
-import numba
 import scipy.optimize as opt
+import jax
 
-@numba.njit
-def fermi(e,mu,T):
+def fermi_no_jit(e,mu,T):
     """
     Compute the Fermi-Dirac distribution function.
     
@@ -37,9 +35,9 @@ def fermi(e,mu,T):
         Occupation probability at given energy
     """
     return 1/(1+np.exp((e-mu)/T))
+fermi = jax.jit(fermi_no_jit)
 
-@numba.njit
-def particle_num(mu,d,e,num,t):
+def particle_num_no_jit(mu,d,e,num,t):
     """
     Constraint function for particle number conservation.
     
@@ -67,9 +65,9 @@ def particle_num(mu,d,e,num,t):
     """
     result = num - np.sum(fermi(e-d,mu,t))
     return result
+particle_num = jax.jit(particle_num_no_jit)
 
-@numba.njit
-def fixed_log(mu,e,t):
+def fixed_log_no_jit(mu,e,t):
     """
     Numerically stable logarithm for free energy calculation.
     
@@ -92,6 +90,7 @@ def fixed_log(mu,e,t):
         Stable logarithm values for free energy
     """
     return np.where(mu-e>0,(mu-e)/t+np.log(1+np.exp((e-mu)/t)), np.log(1+np.exp((mu-e)/t)))
+fixed_log = jax.jit(fixed_log_no_jit)
 
 @numba.njit(parallel=True,cache=True)
 def loops(dlast,mu,e,lengthm,vector,t,momenta,u,d_gate,a):
