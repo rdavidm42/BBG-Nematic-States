@@ -33,6 +33,8 @@ Usage:
 
 
 import numpy as np
+import jax
+jax.config.update("jax_enable_x64", True)
 from get_dispersion_one_v import getting_energies
 from solve_sc import main, particle_num
 import os

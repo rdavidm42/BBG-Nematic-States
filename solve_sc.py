@@ -141,7 +141,7 @@ def loops(dlast,mu,e,interaction,t):
     # Ensure the interaction matrix is contiguous for efficient access by MSI cluster
     return interaction @ fermi_vals
 
-def get_order_parameters(num,lengthm,energy,interaction,initial_guess,t):
+def get_order_parameters(num,energy,interaction,initial_guess,t):
     """
     Solve self-consistent Hartree-Fock equations iteratively.
     
@@ -283,7 +283,6 @@ def main(lengthm,l,energy,total_number,interaction,t,initial_guess):
     number = l**2*5.24e-16*total_number
     # Solve self-consistent equations
     d,ef,ef_norm,maxerror,total_energy = get_order_parameters(number,
-                                                              lengthm,
                                                               energy,
                                                               interaction,
                                                               initial_guess,
