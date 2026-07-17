@@ -66,7 +66,7 @@ lengthm = len(momenta)
 # Physical Parameters
 # ============================================================================
 t = .005 #Temperature in meV
-d_gate = 20 # Gate distance to sample in nm
+d_gate = 30 # Gate distance to sample in nm
 v = float(sys.argv[1]) # Applied perpendicular electric field in meV
 total_number = float(sys.argv[2]) # Total particle density in cm^-2
 er = float(sys.argv[3]) # Dielectric constant used to scale the effective interaction strength
@@ -79,7 +79,7 @@ particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="hybr")
 
 ef = particle_solver.run(init_params=jnp.min(energy[0]), 
                                 d = jnp.zeros_like(energy[0]), 
-                                e = energy[0], 
+                                e = jnp.array(energy[0]), 
                                 num = L**2*5.24e-16*total_number, 
                                 t = t).params # Chemical potential for the non-interacting system at the given density and temperature
 
