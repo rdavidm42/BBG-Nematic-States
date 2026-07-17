@@ -129,18 +129,18 @@ energy = jnp.asarray(energy)
 interaction = jnp.asarray(interaction)
 
 polarized = jnp.array([u*total_number/4*(2.46e-8)**2*jnp.ones(lengthm)])
-full_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/4*.9,np.array([interaction[0]]),t,polarized)
-full_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/4*.9,np.array([interaction[1]]),t,polarized)
-half_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/2*.9,np.array([interaction[0]]),t,polarized)
-quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number*.9,np.array([interaction[0]]),t,polarized)
-three_quarter_metal_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),total_number/3*.9,np.array([interaction[0]]),t,polarized)
-three_quarter_metal_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),total_number/3*.9,np.array([interaction[1]]),t,polarized)
+full_metal_k,_,_,_,_,_ = main(L,np.array([energy[0]]),total_number/4*.9,np.array([interaction[0]]),t,polarized)
+full_metal_k_prime,_,_,_,_,_ = main(L,np.array([energy[1]]),total_number/4*.9,np.array([interaction[1]]),t,polarized)
+half_metal_k,_,_,_,_,_ = main(L,np.array([energy[0]]),total_number/2*.9,np.array([interaction[0]]),t,polarized)
+quarter_metal_k,_,_,_,_,_ = main(L,np.array([energy[0]]),total_number*.9,np.array([interaction[0]]),t,polarized)
+three_quarter_metal_k,_,_,_,_,_ = main(L,np.array([energy[0]]),total_number/3*.9,np.array([interaction[0]]),t,polarized)
+three_quarter_metal_k_prime,_,_,_,_,_ = main(L,np.array([energy[1]]),total_number/3*.9,np.array([interaction[1]]),t,polarized)
 
 nematic_guess = jnp.array([momenta[:,0]])
-one_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,nematic_guess)
-one_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,-nematic_guess)
-two_k,_,_,_,_,_ = main(lengthm,L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,-nematic_guess)
-two_k_prime,_,_,_,_,_ = main(lengthm,L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,nematic_guess)
+one_k,_,_,_,_,_ = main(L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,nematic_guess)
+one_k_prime,_,_,_,_,_ = main(L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,-nematic_guess)
+two_k,_,_,_,_,_ = main(L,np.array([energy[0]]),.25e10,np.array([interaction[0]]),t,-nematic_guess)
+two_k_prime,_,_,_,_,_ = main(L,np.array([energy[1]]),.25e10,np.array([interaction[1]]),t,nematic_guess)
 
 empty = jnp.zeros_like(full_metal_k)
 
@@ -180,7 +180,7 @@ total_energy = np.zeros(initial_guess.shape[0])
 # Run the self-consistent Hartree-Fock solver for each competing phase
 for j in range(initial_guess.shape[0]):
     dinitial = initial_guess[j]
-    d[j],ef[j],ef_norm[j],best_max_error[j],occupation[j],total_energy[j] = main(lengthm,L,energy,total_number,interaction,t,dinitial)
+    d[j],ef[j],ef_norm[j],best_max_error[j],occupation[j],total_energy[j] = main(L,energy,total_number,interaction,t,dinitial)
 
 # Getting variables that correspond to the lowest energy solution across all competing phases
 d = d[jnp.argmin(total_energy)]
@@ -229,8 +229,7 @@ if not os.path.exists(output_path):
     "cutoff":cutoff,
     "epsilon":er,
     "t":t,
-    "d_gate":d_gate,
-    "version":"v2"}
+    "d_gate":d_gate}
     
     with open(output_path, "w") as f:
         json.dump(params, f, indent=2)

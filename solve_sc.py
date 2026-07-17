@@ -113,8 +113,6 @@ def loops(dlast,mu,e,interaction,t):
         Chemical potential
     e : ndarray, shape (lengthm,)
         Energy dispersion
-    lengthm : int
-        Number of momentum points
     vector : ndarray, shape (lengthm, lengthm)
         Interaction matrix V(k, k')
     t : float
@@ -155,8 +153,6 @@ def get_order_parameters(num,energy,interaction,initial_guess,t):
     ----------
     num : float
         Total particle number
-    lengthm : int
-        Number of momentum grid points
     l : float
         System size (for density calculations)
     energy : ndarray, shape (n_bands, lengthm)
@@ -240,7 +236,7 @@ def get_order_parameters(num,energy,interaction,initial_guess,t):
         i += 1
     return true_d,true_ef,ef_norm,best_max_error,float(total_energy)
 
-def main(lengthm,l,energy,total_number,interaction,t,initial_guess):
+def main(l,energy,total_number,interaction,t,initial_guess):
     """
     Main entry point for Hartree-Fock calculation.
     
@@ -249,8 +245,6 @@ def main(lengthm,l,energy,total_number,interaction,t,initial_guess):
     
     Parameters
     ----------
-    lengthm : int
-        Number of momentum points
     l : float
         System size (nm)
     energy : ndarray, shape (n_bands, lengthm)
