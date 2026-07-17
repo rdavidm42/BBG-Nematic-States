@@ -190,7 +190,7 @@ def get_order_parameters(num,energy,interaction,initial_guess,t):
     """
 
     dinitial = jnp.copy(initial_guess)
-    particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="hybr")
+    particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="broyden1")
     # Calculate non-interacting Fermi level (for reference)
     ef_norm = particle_solver.run(init_params=jnp.min(energy[0]), 
                                   d = jnp.zeros_like(dinitial), 

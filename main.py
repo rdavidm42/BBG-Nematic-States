@@ -66,7 +66,7 @@ lengthm = len(momenta)
 # Physical Parameters
 # ============================================================================
 t = .005 #Temperature in meV
-d_gate = 30 # Gate distance to sample in nm
+d_gate = 20 # Gate distance to sample in nm
 v = float(sys.argv[1]) # Applied perpendicular electric field in meV
 total_number = float(sys.argv[2]) # Total particle density in cm^-2
 er = float(sys.argv[3]) # Dielectric constant used to scale the effective interaction strength
@@ -75,7 +75,7 @@ a = .246 # Lattice constant in nm
 
 energy,_ = getting_energies(v,momenta) # Get non-interacting energy dispersions and eigenvectors for the four isospin configurations for dense momentum grid
 
-particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="hybr")
+particle_solver = ScipyRootFinding(optimality_fun=particle_num, method="broyden1")
 
 ef = particle_solver.run(init_params=jnp.min(energy[0]), 
                                 d = jnp.zeros_like(energy[0]), 
