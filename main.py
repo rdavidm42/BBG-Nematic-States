@@ -91,7 +91,7 @@ try:
     cutoff = max([np.max(x) for x in segs])*1.1
 except:
     cutoff = .12
-L = np.around(np.sqrt(20000*8*np.pi/np.sqrt(3))/cutoff*1/6)*6
+L = np.around(np.sqrt(10000*8*np.pi/np.sqrt(3))/cutoff*1/6)*6
 momenta = np.array([(n1*b1+n2*b2)/L for n1 in range(-200,200) for n2 in range(-200,200) if np.linalg.norm((n1*b1+n2*b2)/L)<cutoff])
 
 del grid_x, grid_y, X, Y, Z, contour, kx, ky
@@ -190,7 +190,7 @@ data_to_save = {
     'total_energy': total_energy,
     'momenta': momenta
 }
-os.makedirs(directory,exists_ok=True)
+os.makedirs(directory,exist_ok=True)
 # Save each data object in its own subdirectory for organization
 for name, data_object in data_to_save.items():
     target_subdir = os.path.join(directory, name)
@@ -208,8 +208,8 @@ if not os.path.exists(output_path):
     "cutoff":cutoff,
     "epsilon":er,
     "t":t,
-    "d_gate":d_gate,
-    "version":"v2"}
+    "d_gate":d_gate
+    }
     
     with open(output_path, "w") as f:
         json.dump(params, f, indent=2)
