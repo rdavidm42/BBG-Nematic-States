@@ -40,7 +40,6 @@ from solve_sc import main, particle_num
 import os
 import sys
 import matplotlib.pyplot as plt
-import scipy.optimize as opt
 from scipy.interpolate import griddata
 import jax.numpy as jnp
 from jaxopt import ScipyRootFinding
@@ -195,8 +194,7 @@ total_energy = jnp.min(total_energy)
 # Saving Results
 # ============================================================================
 # Move back two folders
-path = os.getcwd() + '/../../'
-path = os.path.abspath(path)
+path = os.getcwd()
 
 # Creating save directory
 directory = os.path.join(path, 'data_files'+str(int(er))+str(d_gate)+'/')
